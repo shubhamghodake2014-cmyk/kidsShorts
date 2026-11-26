@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="kids_mode_accessibility_description">Keeps KidzShorts in the foreground while Kids Mode protection is enabled. Observes app-window changes only to return to KidzShorts; it does not read screen content.</string>
+</resources>

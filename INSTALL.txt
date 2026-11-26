@@ -1,0 +1,27 @@
+KidzShorts Kids Mode Protection patch
+
+1. Replace lib/main.dart with this main.dart.
+2. Replace android/app/src/main/AndroidManifest.xml with the supplied manifest.
+3. Replace android/app/src/main/kotlin/com/example/kidz_shorts/MainActivity.kt.
+4. Add KidsModeAccessibilityService.kt beside MainActivity.kt.
+5. Add res/xml/kids_mode_accessibility_service.xml.
+6. Add res/values/kids_mode_strings.xml. If your project already has a strings.xml, this separate file can stay; Android merges values resources.
+
+Then run from the Flutter project root:
+  flutter clean
+  flutter pub get
+  flutter build apk --release
+
+On the phone, launch KidzShorts and tap Open Settings when the protection prompt appears.
+Enable Accessibility > Downloaded apps/Installed services > KidzShorts Kids Mode Protection.
+Return to KidzShorts. Protection becomes active after the app resumes.
+
+To leave Kids Mode, use the existing Parent lock > enter PIN > Exit Kids Mode.
+The protection flag is switched off before KidzShorts closes.
+
+Limitations:
+- This is a best-effort Accessibility-based redirect, not Android Device Owner / Lock Task kiosk mode.
+- Android/OEM background-launch restrictions can sometimes prevent an automatic return.
+- Accessibility must be enabled manually by the phone owner.
+- It cannot prevent force-stop, uninstall, power-off, or guarantee blocking Settings/notification shade on every Android build.
+- The service reads app/window-change event package names only; it does not retrieve screen contents or record keystrokes.

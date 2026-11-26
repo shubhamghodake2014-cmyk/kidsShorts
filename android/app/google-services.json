@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "303400423015",
+    "project_id": "kidzshorts",
+    "storage_bucket": "kidzshorts.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:303400423015:android:4b39712689c6b9a80f0ec2",
+        "android_client_info": {
+          "package_name": "com.example.kidz_shorts"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "303400423015-a5gq4psje3i5jv5gfb21as7c46uafulk.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8PLUIvu13ARbY-gj6E9LrLi64DfDm8E4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "303400423015-a5gq4psje3i5jv5gfb21as7c46uafulk.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
