@@ -397,7 +397,7 @@ class UserSettingsGate extends StatelessWidget {
           return const ParentDashboard(isInitialSetup: true);
         }
 
-        return KidsFeedScreen(
+        return KidsHomeScreen(
           language: data['language'] ?? 'Marathi',
           categories: List<String>.from(
             data['categories'] ?? ['Rhymes', 'Education'],
@@ -1332,7 +1332,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
 
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => KidsFeedScreen(
+          builder: (_) => KidsHomeScreen(
             language: language,
             categories: selectedCategories.toList(),
           ),
@@ -2054,7 +2054,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (_) => KidsFeedScreen(
+                              builder: (_) => KidsHomeScreen(
                                 language: language,
                                 categories: selectedCategories.toList(),
                               ),
@@ -2466,6 +2466,153 @@ class _ChildProfileScreenState extends State<ChildProfileScreen> {
       ),
     );
   }
+}
+
+
+// ============================================================
+// KIDZSHORTS HOME - LANDSCAPE VIDEO DISCOVERY
+// ============================================================
+
+class KidsHomeScreen extends StatefulWidget {
+  final String language;
+  final List<String> categories;
+  const KidsHomeScreen({super.key, required this.language, required this.categories});
+
+  @override
+  State<KidsHomeScreen> createState() => _KidsHomeScreenState();
+}
+
+class _KidsHomeScreenState extends State<KidsHomeScreen> {
+  static const List<String> homeCategories = ['All', 'Rhymes', 'Learning', 'Stories', 'Cartoons', 'Animals'];
+  String selected = 'All';
+  List<Map<String, dynamic>> videos = [];
+  bool loading = true;
+  String? error;
+  int requestId = 0;
+
+  String get languageCode => widget.language == 'Marathi' ? 'mr' : widget.language == 'Hindi' ? 'hi' : 'en';
+
+  @override
+  void initState() {
+    super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _enableProtection());
+    loadHomeVideos('All');
+  }
+
+  Future<void> _enableProtection() async {
+    try {
+      final enabled = await kidsModeChannel.invokeMethod<bool>('isAccessibilityEnabled') ?? false;
+      await kidsModeChannel.invokeMethod<void>('setProtectionEnabled', {'enabled': enabled});
+    } catch (e) { debugPrint('HOME KIDS MODE: $e'); }
+  }
+
+  Future<void> loadHomeVideos(String category) async {
+    final request = ++requestId;
+    setState(() { selected = category; loading = true; error = null; videos = []; });
+    try {
+      final uri = Uri.parse('$apiBaseUrl/home-videos').replace(queryParameters: {'category': category, 'language': languageCode});
+      final response = await http.get(uri).timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) throw Exception('Server error: ${response.statusCode}');
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final list = (data['videos'] as List? ?? []).map((v) => Map<String, dynamic>.from(v)).toList();
+      if (!mounted || request != requestId) return;
+      setState(() { videos = list; loading = false; });
+    } catch (e) {
+      if (!mounted || request != requestId) return;
+      setState(() { loading = false; error = e.toString(); });
+    }
+  }
+
+  Future<void> openParentControls() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const ParentLoginScreen()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF101014),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF101014), foregroundColor: Colors.white,
+        titleSpacing: 16,
+        title: Row(children: [
+          Container(width: 34, height: 30, decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFFFF4F91), Color(0xFF7651E8)]), borderRadius: BorderRadius.circular(10)), child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 25)),
+          const SizedBox(width: 9), const Text('KidzShorts', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        ]),
+        actions: [IconButton(tooltip: 'Parent Controls', onPressed: openParentControls, icon: const Icon(Icons.lock_outline_rounded)), const SizedBox(width: 5)],
+      ),
+      body: Column(children: [
+        SizedBox(height: 52, child: ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7), scrollDirection: Axis.horizontal,
+          itemCount: homeCategories.length, separatorBuilder: (_, __) => const SizedBox(width: 9),
+          itemBuilder: (context, i) {
+            final c = homeCategories[i]; final active = selected == c;
+            return ChoiceChip(label: Text(c), selected: active, onSelected: (_) => loadHomeVideos(c), showCheckmark: false,
+              labelStyle: TextStyle(fontWeight: FontWeight.w800, color: active ? const Color(0xFF25183F) : Colors.white),
+              selectedColor: const Color(0xFFFFD45E), backgroundColor: const Color(0xFF303036), side: BorderSide.none,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)));
+          },
+        )),
+        Expanded(child: loading ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFD45E)))
+          : error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.wifi_off_rounded, color: Colors.white70, size: 42), const SizedBox(height: 12), const Text('Videos load nahi zale', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), const SizedBox(height: 12), Text(error!, style: const TextStyle(color: Colors.white60), textAlign: TextAlign.center), TextButton(onPressed: () => loadHomeVideos(selected), child: const Text('Retry'))])))
+          : videos.isEmpty ? const Center(child: Text('No videos found. Try another category.', style: TextStyle(color: Colors.white70)))
+          : RefreshIndicator(color: const Color(0xFFFFD45E), onRefresh: () => loadHomeVideos(selected), child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 20), itemCount: videos.length, itemBuilder: (context, index) {
+                final video = videos[index];
+                final thumb = video['thumbnail']?.toString() ?? '';
+                final title = video['title']?.toString() ?? 'Kids video';
+                return Padding(padding: const EdgeInsets.only(bottom: 20), child: InkWell(
+                  borderRadius: BorderRadius.circular(17), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => HomeVideoPlayerScreen(video: video))),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    ClipRRect(borderRadius: BorderRadius.circular(17), child: AspectRatio(aspectRatio: 16/9, child: Stack(fit: StackFit.expand, children: [
+                      thumb.isNotEmpty ? Image.network(thumb, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: const Color(0xFF34313D), child: const Icon(Icons.video_library_rounded, color: Colors.white54, size: 45))) : Container(color: const Color(0xFF34313D)),
+                      Align(alignment: Alignment.bottomRight, child: Container(margin: const EdgeInsets.all(10), padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5), decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8)), child: const Text('▶ PLAY', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)))),
+                    ]))),
+                    const SizedBox(height: 10), Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Container(width: 36, height: 36, decoration: const BoxDecoration(shape: BoxShape.circle, gradient: LinearGradient(colors: [Color(0xFFFF9CC5), Color(0xFF8D70F2)])), child: const Icon(Icons.child_friendly_rounded, color: Colors.white, size: 21)),
+                      const SizedBox(width: 10), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)), const SizedBox(height: 4), Text('${video['channelTitle'] ?? 'KidzShorts'}  •  Kids video', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white60, fontSize: 11))])),
+                      const Icon(Icons.more_vert_rounded, color: Colors.white70),
+                    ]),
+                  ]),
+                ));
+              },
+            )),
+        ),
+      ]),
+      bottomNavigationBar: _KidzBottomBar(selectedIndex: 0, onHome: () {}, onShorts: () => Navigator.push(context, MaterialPageRoute(builder: (_) => KidsFeedScreen(language: widget.language, categories: widget.categories)))),
+    );
+  }
+}
+
+class HomeVideoPlayerScreen extends StatefulWidget {
+  final Map<String, dynamic> video;
+  const HomeVideoPlayerScreen({super.key, required this.video});
+  @override
+  State<HomeVideoPlayerScreen> createState() => _HomeVideoPlayerScreenState();
+}
+
+class _HomeVideoPlayerScreenState extends State<HomeVideoPlayerScreen> {
+  late final YoutubePlayerController controller;
+  @override
+  void initState() {
+    super.initState();
+    final id = widget.video['videoId'].toString();
+    controller = YoutubePlayerController.fromVideoId(videoId: id, autoPlay: true, params: const YoutubePlayerParams(showControls: true, showFullscreenButton: false));
+  }
+  @override
+  void dispose() { controller.close(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => Scaffold(backgroundColor: Colors.black, appBar: AppBar(backgroundColor: Colors.black, foregroundColor: Colors.white, title: const Text('KidzShorts')), body: Column(children: [AspectRatio(aspectRatio: 16/9, child: YoutubePlayer(controller: controller, aspectRatio: 16/9)), Padding(padding: const EdgeInsets.all(16), child: Text(widget.video['title']?.toString() ?? '', style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)))]));
+}
+
+class _KidzBottomBar extends StatelessWidget {
+  final int selectedIndex; final VoidCallback onHome; final VoidCallback onShorts;
+  const _KidzBottomBar({required this.selectedIndex, required this.onHome, required this.onShorts});
+  @override
+  Widget build(BuildContext context) => Container(color: const Color(0xFF17171C), child: SafeArea(top: false, child: SizedBox(height: 61, child: Row(children: [
+    Expanded(child: InkWell(onTap: onHome, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.home_rounded, color: selectedIndex == 0 ? const Color(0xFFFFD45E) : Colors.white60), Text('Home', style: TextStyle(color: selectedIndex == 0 ? const Color(0xFFFFD45E) : Colors.white60, fontSize: 11, fontWeight: FontWeight.w800))]))),
+    Expanded(child: InkWell(onTap: onShorts, child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.smart_display_rounded, color: selectedIndex == 1 ? const Color(0xFFFFD45E) : Colors.white60), Text('Shorts', style: TextStyle(color: selectedIndex == 1 ? const Color(0xFFFFD45E) : Colors.white60, fontSize: 11, fontWeight: FontWeight.w800))]))),
+  ]))));
 }
 
 // ============================================================
@@ -3149,9 +3296,14 @@ class _KidsFeedScreenState extends State<KidsFeedScreen>
     final screenSize = MediaQuery.of(context).size;
 
     return PopScope(
-      canPop: false,
+      canPop: true,
       child: Scaffold(
         backgroundColor: Colors.black,
+      bottomNavigationBar: _KidzBottomBar(
+        selectedIndex: 1,
+        onHome: () => Navigator.pop(context),
+        onShorts: () {},
+      ),
       body: isLoading
           ? const Center(
               child: CircularProgressIndicator(
